@@ -126,7 +126,7 @@
         const BIN_ID = "6a32e213f5f4af5e2903940f"; 
         // --- End Configuration ---
 
-        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID.trim()}`;
         
         // DOM Elements
         const adminPanel = document.getElementById('admin-panel');
@@ -179,7 +179,7 @@
                 const response = await fetch(API_URL + '/latest?nocache=' + new Date().getTime(), {
                     cache: 'no-store',
                     headers: {
-                        'X-Master-Key': JSONBIN_MASTER_KEY,
+                        'X-Master-Key': JSONBIN_MASTER_KEY.trim(),
                         'X-Bin-Meta': 'false',
                         'Cache-Control': 'no-cache'
                     }
@@ -225,8 +225,8 @@
             e.preventDefault();
 
             const rawStatus = document.getElementById('new-status').value;
-            // Clean emojis from the status value before saving
-            const cleanStatus = rawStatus.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim(); 
+            // Removed complex emoji regex that crashes some older mobile browsers
+            const cleanStatus = rawStatus.trim(); 
             
             const location = document.getElementById('new-location').value;
             const notes = document.getElementById('new-notes').value;
@@ -260,12 +260,16 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_MASTER_KEY
+                        'X-Master-Key': JSONBIN_MASTER_KEY.trim(),
+                        'X-Bin-Versioning': 'false'
                     },
                     body: JSON.stringify({ logs: trackingLogs })
                 });
 
-                if (!response.ok) throw new Error("Failed to save to cloud");
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error("Cloud rejected the save: " + errText);
+                }
 
                 // Success
                 document.getElementById('new-location').value = '';
@@ -411,7 +415,8 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_MASTER_KEY
+                        'X-Master-Key': JSONBIN_MASTER_KEY.trim(),
+                        'X-Bin-Versioning': 'false'
                     },
                     body: JSON.stringify({ logs: trackingLogs })
                 });
