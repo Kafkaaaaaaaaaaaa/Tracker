@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physical Locator Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div id="app" class="max-w-xl mx-auto p-4">
+        <header class="flex justify-between items-center py-6">
+            <h1 class="text-2xl font-bold">Physical Locator</h1>
+            <button onclick="toggleAdmin()" class="text-xs bg-slate-200 px-3 py-1 rounded-full font-medium">Admin Mode</button>
+        </header>
+
+        <div id="debug" class="hidden p-4 mb-4 bg-red-100 text-red-700 text-xs rounded border border-red-200"></div>
+
+        <div id="adminPanel" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+            <h2 class="font-bold mb-4">Push Location</h2>
+            <input type="text" id="loc" placeholder="Location Name" class="w-full p-2 border rounded mb-2">
+            <input type="text" id="note" placeholder="Notes" class="w-full p-2 border rounded mb-2">
+            <button onclick="pushUpdate()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Publish Update</button>
+        </div>
+
+        <div id="timeline" class="space-y-4">
+            <p class="text-slate-400 text-center py-10">Loading tracking data...</p>
+        </div>
+    </div>
+
+    <script>
+        const BIN_ID = "6a32e213f5f4af5e2903940f";
+        const MASTER_KEY = "$2a$10$EWsGL4YWeufRrUGuTxzFhu5TvsuBj6UMp1WfoE1uxJTjJ0RmAyqHq";
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        
+        let currentLogs = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: { 'X-Master-Key': MASTER_KEY }
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                currentLogs = data.record.logs || [];
+                renderTimeline(currentLogs);
+            } catch (e) {
+                showError("Failed to fetch: " + e.message);
+            }
+        }
+
+        async function pushUpdate() {
+            const loc = document.getElementById('loc').value;
+            const note = document.getElementById('note').value;
+            if (!loc) return alert("Location is required!");
+
+            const newEntry = {
+                location: loc,
+                note: note,
+                time: new Date().toLocaleString()
+            };
+
+            const updatedLogs = [newEntry, ...currentLogs];
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': MASTER_KEY 
+                    },
+                    body: JSON.stringify({ logs: updatedLogs })
+                });
+
+                if (!response.ok) throw new Error("Failed to save update.");
+                
+                document.getElementById('loc').value = '';
+                document.getElementById('note').value = '';
+                fetchData();
+            } catch (e) {
+                showError("Update Error: " + e.message);
+            }
+        }
+
+        function renderTimeline(logs) {
+            const container = document.getElementById('timeline');
+            container.innerHTML = logs.length ? logs.map(log => `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <p class="font-bold text-blue-600">${log.location}</p>
+                    <p class="text-sm text-slate-500">${log.note}</p>
+                    <p class="text-[10px] text-slate-400 mt-2">${log.time}</p>
+                </div>
+            `).join('') : '<p class="text-center text-slate-400">No updates yet.</p>';
+        }
+
+        function toggleAdmin() {
+            document.getElementById('adminPanel').classList.toggle('hidden');
+        }
+
+        function showError(msg) {
+            const d = document.getElementById('debug');
+            d.innerText = msg;
+            d.classList.remove('hidden');
+        }
+
+        fetchData();
+        setInterval(fetchData, 30000); // Auto-refresh every 30s
+    </script>
+</body>
+</html>
